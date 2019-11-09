@@ -10,11 +10,11 @@
 #include <TimerOne.h> //Bivlioteca para usar interrupção do TIMER1
 
 // -- Variaveis e Constantes --
-int numeroAzul1 = 0;
-int numeroAzul2 = 0;
-int numeroVermelho1 = 0;
-int numeroVermelho2 = 0;
-byte mux = 0x01;
+volatile int numeroAzul1 = 0;
+volatile int numeroAzul2 = 0;
+volatile int numeroVermelho1 = 0;
+volatile int numeroVermelho2 = 0;
+volatile int mux = 0;
 
 // -- Entradas --
 int botAzul = 2; //Botao para incrementar para incrementar numero Azul
@@ -22,10 +22,11 @@ int botVermelho = 3; //Botao para incrementar numero Vermelho
 int primeiroDigito = 4; //Botão para incrementar primeiro ou segundo digito de cada numero
 
 // -- Saídas --
-int displayAzul1 = A0; //Variavel para ativar display Azul1
-int displayAzul2 = A1; //Variavel para ativar display Azul2
-int displayVermelho1 = A2; //Variavel para ativar display Vermelho1
-int displayVermelho2 = A3; //Variavel para ativar display Vermelho2
+int displayAzul1 = 5; //Variavel para ativar display Azul1
+int displayAzul2 = A4; //Variavel para ativar display Azul2
+int displayVermelho1 = 13; //Variavel para ativar display Vermelho1
+int displayVermelho2 = 0; //Variavel para ativar display Vermelho2
+int displays[] = {displayAzul1, displayAzul2, displayVermelho1, displayVermelho2};
 
 byte seven_seg_digits[10][7] = {
  //Para leds acionando em HIGH (Display catodo Comum)
@@ -54,7 +55,7 @@ void setup() {
   attachInterrupt(0, azul, FALLING); //Chama azul() quando botão azul é presionado
   attachInterrupt(1, vermelho, FALLING); //Chama vermelho() quando botão vermelho é presionado
 
-  Timer1.initialize(10000); // Inicializa o Timer1 e configura para um período de 10 milisegundos
+  Timer1.initialize(100000); // Inicializa o Timer1 e configura para um período de 10 milisegundos
   Timer1.attachInterrupt(callback); // Chama callback() a cada interrupção do Timer1
   
   //Saídas
@@ -91,43 +92,56 @@ void setup() {
 //Função chamada quando o botão vermelho é pressionado
 void vermelho() {
   noInterrupts(); //Desativa as interrupções
-  if(PIND && 0b00010000){ //se o botao primeiroDigito tiver acionado
+  if(digitalRead(4)){ //se o botao primeiroDigito tiver acionado
     numeroVermelho1 = (numeroVermelho1++)%10; //Incrementa o primeiro digito vermelho
-  } //Se não
-  numeroVermelho2 = (numeroVermelho2++)%10; //Incrementa o segundo digito vermelho
+  }else{ //Se não
+    numeroVermelho2 = (numeroVermelho2++)%10; //Incrementa o segundo digito vermelho
+  } 
 }
 
 //Função chamada quando o botão azul é pressionado
 void azul() {
   noInterrupts(); //Desativa as interrupções
-  if(PIND && 0b00010000){ //se o botao primeiroDigito tiver acionado
+  if(digitalRead(4)){ //se o botao primeiroDigito tiver acionado
     numeroAzul1 = (numeroAzul1++)%10; //Incrementa o primeiro digito azul
+  }else{ //Se não
+    numeroAzul2 = (numeroAzul2++)%10;; //Incrementa o segundo digito azul
   }
-  numeroAzul2 = (numeroAzul2++)%10;; //Incrementa o segundo digito azul
 }
 
 //Função chamada a cada interrupção do Timer
 void callback()
 {
-  mux = (mux++)%4;
-  digitalWrite(displayAzul1, 0x00 && mux); //Troca o estado do display azul1
-  digitalWrite(displayAzul2, 0x01 && mux); //Troca o estado do display azul2
-  digitalWrite(displayVermelho1, 0x02 && mux); //Troca o estado do display vermelho1
-  digitalWrite(displayVermelho2, 0x03 && mux); //Troca o estado do display vermelho2
-  
-  if(0x00 && mux){ //caso formos ligar o display azul1
+  //Atualiza o valor de mux
+  mux = mux++;
+  mux = mux%4;
+  //Apaga todos os displays
+  digitalWrite(displayAzul1, LOW); //Troca o estado do display azul1
+  digitalWrite(displayAzul2, LOW); //Troca o estado do display azul2
+  digitalWrite(displayVermelho1, LOW); //Troca o estado do display vermelho1
+  digitalWrite(displayVermelho2, LOW); //Troca o estado do display vermelho2
+  //Atualiza o valor a ser exibido
+  delay(100);
+  if(0 == mux){ //caso formos ligar o display azul1
     ligaSegmentosDisplay(numeroAzul1); //Exibimos o digito azul1
   }
-  if(0x01 && mux){ //caso formos ligar o display azul2
+  if(1 == mux){ //caso formos ligar o display azul2
     ligaSegmentosDisplay(numeroAzul2); //Exibimos o digito azul2
   }
-  if(0x02 && mux){ //caso formos ligar o display vermelho1
+  if(2 == mux){ //caso formos ligar o display vermelho1
     ligaSegmentosDisplay(numeroVermelho1); //Exibimos o digito vermelho1
   }
-  if(0x03 && mux){ //caso formos ligar o display vermelho2
+  if(3 == mux){ //caso formos ligar o display vermelho2
     ligaSegmentosDisplay(numeroVermelho2); //Exibimos o digito vermelho2
   }
-}
+  delay(100);
+
+  //ativa o display que deve exibir o valor
+  for(int i=0;i<4;i++){
+   digitalWrite(displays[i], i == mux);
+  }
+} 
+
 
 //Função que exibe a pontuação no display
 void ligaSegmentosDisplay(byte digit){
